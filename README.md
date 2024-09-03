@@ -1,2 +1,2 @@
-# values-habits-percepts
-role of dopamine in learning values, habits, and percepts
+# habits
+habit formation model
