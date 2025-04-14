@@ -7,13 +7,13 @@ from scipy.stats import expon, poisson
 from matplotlib import pyplot as plt
 
 # simulations
-simulate_learning = False
+simulate_learning = True
 simulate_reversal = False
 simulate_sequential_learning = False
 simulate_sequential_reversal = False
 simulate_inference_reversal = False
 simulate_schedule = False
-simulate_accumulation = True
+simulate_accumulation = False
 
 # theory
 theory_learning = False
@@ -22,21 +22,22 @@ theory_delay = False
 theory_schedule = False
 
 # plots
-plot_simulation = False
+plot_simulation = True
 plot_softmax = False
 plot_theory = False
 plot_inference = False
 plot_distal = False
 plot_delay = False
 plot_schedule = False
-plot_accumulation = True
+plot_accumulation = False
+plot_supplements = False
 
 if simulate_learning:
     # task parameters
     S = np.array([0, 1])                                # state space
     A = np.array([0, 1])                                # action space
     R = np.array(([1, 0], [0, 1]))                      # reward, punishment
-    params = {'beta': 1.5, 'p_n': 0.2, 'lr': 1e-3, 'Ntrials': 10000, 'eps': 1e-3}
+    params = {'beta': 3, 'p_n': 0.2, 'lr': 1e-3, 'Ntrials': 10000, 'eps': 1e-3, 'adapt': 0}
     model = []
     nsims = 10                 # number of simulations
     # dual learning system
@@ -51,7 +52,7 @@ if simulate_reversal:
     S = np.array([0, 1])                                # state space
     A = np.array([0, 1])                                # action space
     R = np.array(([1, 0], [0, 1]))                      # reward, punishment
-    params = {'beta': 3, 'p_n': 0.2, 'lr': 1e-3, 'Ntrials': 10000, 'eps': 1e-3}
+    params = {'beta': 2.6, 'p_n': 0.2, 'lr': 1e-3, 'Ntrials': 10000, 'eps': 1e-3, 'adapt': 0}
     model = []
     nsims = 10                 # number of simulations
     # dual learning system
@@ -66,7 +67,7 @@ if simulate_sequential_learning:
     S = np.array([0, 1])                                # state space
     A = np.array([0, 1])                                # action space
     R = np.array(([0, 1], [0, 1]))                      # reward, punishment
-    params = {'beta': 2, 'p_n': 0.1, 'lr': 1e-3, 'Ntrials': 5000, 'eps': 1e-3}
+    params = {'beta': 2, 'p_n': 0.1, 'lr': 1e-3, 'Ntrials': 5000, 'eps': 1e-3, 'adapt': 0}
     model = []
     nsims = 10                 # number of simulations
     # dual learning system
@@ -81,7 +82,7 @@ if simulate_sequential_reversal:
     S = np.array([0, 1])                                # state space
     A = np.array([0, 1])                                # action space
     R = np.array(([0, 0], [0, 1]))                      # reward, punishment
-    params = {'beta': 2, 'p_n': 0.1, 'lr': 1e-3, 'Ntrials': 10000, 'eps': 1e-3}
+    params = {'beta': 2, 'p_n': 0.2, 'lr': 1e-3, 'Ntrials': 10000, 'eps': 1e-3, 'adapt': 0}
     model = []
     nsims = 10                 # number of simulations
     # dual learning system
@@ -110,7 +111,7 @@ if simulate_inference_reversal:
     S = np.array([0, 1])                                # state space
     A = np.array([0, 1])                                # action space
     R = np.array(([1, 0], [0, 1]))                      # reward, punishment
-    params = {'beta': 3, 'p_n': 0.2, 'lr': 1e-3, 'Ntrials': 10000, 'eps': 1e-3}
+    params = {'beta': 3, 'p_n': 0.2, 'lr': 1e-3, 'Ntrials': 10000, 'eps': 1e-3, 'adapt': 0}
     model = []
     nsims = 10                 # number of simulations
     # dual learning system
@@ -128,13 +129,14 @@ if simulate_accumulation:
     model1, model2, model3, model4 = [], [], [], []
     weights1, weights2, weights3, weights4 = [], [], [], []
     p_a1, p_a2, p_a3, p_a4 = [], [], [], []
-    nsims = 10                 # number of simulations
+    nsims = 20                 # number of simulations
     # dual learning system
     for idx in range(nsims):
         params['adapt'] = 0
-        params['beta'] = 2.2
+        params['beta'] = 0 + idx*0.25
         params['Q_init'] = 0.5 * np.ones((7, 2))
         params['H_init'] = 0.5 * np.ones((7, 2))
+        params['p_n'] = 0.4
         model1.append(train(S, A, R, params, task='accumulation'))
         stim1 = [model1[idx]['stim'][trial].sum() for trial in range(model1[idx]['params']['Ntrials'])]
         resp1 = [model1[idx]['action'][trial] for trial in range(model1[idx]['params']['Ntrials'])]
@@ -148,9 +150,10 @@ if simulate_accumulation:
         p_a1.append(np.array([np.mean(resp_temp[stim_temp == s]) for s in np.unique(stim1)]))
 
         params['adapt'] = 0
-        params['beta'] = 2.8
+        params['beta'] = 0 + idx*0.25
         params['Q_init'] = 0.5 * np.ones((7, 2))
         params['H_init'] = 0.5 * np.ones((7, 2))
+        params['p_n'] = 0.1
         model2.append(train(S, A, R, params, task='accumulation'))
         stim2 = [model2[idx]['stim'][trial].sum() for trial in range(model2[idx]['params']['Ntrials'])]
         resp2 = [model2[idx]['action'][trial] for trial in range(model2[idx]['params']['Ntrials'])]
@@ -163,39 +166,37 @@ if simulate_accumulation:
         resp_temp = np.array(resp2[-10000:])
         p_a2.append(np.array([np.mean(resp_temp[stim_temp == s]) for s in np.unique(stim2)]))
 
-        params['adapt'] = 1
-        params['beta'] = 2.2
-        params['Q_init'] = 0.5 * np.ones((7, 2))
-        params['H_init'] = 0.5 * np.ones((7, 2))
-        model3.append(train(S, A, R, params, task='accumulation'))
-        stim3 = [model3[idx]['stim'][trial].sum() for trial in range(model3[idx]['params']['Ntrials'])]
-        resp3 = [model3[idx]['action'][trial] for trial in range(model3[idx]['params']['Ntrials'])]
-        trialindex = [np.logical_or(np.array(stim3) == 4, np.array(stim3) == 6)]
-        stimlist = model3[idx]['stim'][trialindex]
-        resplist = model3[idx]['action'][trialindex]
-        regmodel = LogisticRegression(random_state=0).fit(X=stimlist[-2000:].astype(int), y=resplist[-2000:].astype(int))
-        weights3.append(regmodel.coef_.flatten())
-        stim_temp = np.array(stim3[-10000:])
-        resp_temp = np.array(resp3[-10000:])
-        p_a3.append(np.array([np.mean(resp_temp[stim_temp == s]) for s in np.unique(stim3)]))
-
-        params['adapt'] = 2
-        params['beta'] = 2.2
-        params['Q_init'] = 0.5 * np.ones((7, 2))
-        params['H_init'] = 0.5 * np.ones((7, 2))
-        model4.append(train(S, A, R, params, task='accumulation'))
-        stim4 = [model4[idx]['stim'][trial].sum() for trial in range(model4[idx]['params']['Ntrials'])]
-        resp4 = [model4[idx]['action'][trial] for trial in range(model4[idx]['params']['Ntrials'])]
-        trialindex = [np.logical_or(np.array(stim4) == 4, np.array(stim4) == 6)]
-        stimlist = model4[idx]['stim'][trialindex]
-        resplist = model4[idx]['action'][trialindex]
-        regmodel = LogisticRegression(random_state=0).fit(X=stimlist[-2000:].astype(int), y=resplist[-2000:].astype(int))
-        weights4.append(regmodel.coef_.flatten())
-        stim_temp = np.array(stim4[-10000:])
-        resp_temp = np.array(resp4[-10000:])
-        p_a4.append(np.array([np.mean(resp_temp[stim_temp == s]) for s in np.unique(stim4)]))
-
-    zz = 1
+        # params['adapt'] = 1
+        # params['beta'] = 2.2
+        # params['Q_init'] = 0.5 * np.ones((7, 2))
+        # params['H_init'] = 0.5 * np.ones((7, 2))
+        # model3.append(train(S, A, R, params, task='accumulation'))
+        # stim3 = [model3[idx]['stim'][trial].sum() for trial in range(model3[idx]['params']['Ntrials'])]
+        # resp3 = [model3[idx]['action'][trial] for trial in range(model3[idx]['params']['Ntrials'])]
+        # trialindex = [np.logical_or(np.array(stim3) == 4, np.array(stim3) == 6)]
+        # stimlist = model3[idx]['stim'][trialindex]
+        # resplist = model3[idx]['action'][trialindex]
+        # regmodel = LogisticRegression(random_state=0).fit(X=stimlist[-2000:].astype(int), y=resplist[-2000:].astype(int))
+        # weights3.append(regmodel.coef_.flatten())
+        # stim_temp = np.array(stim3[-10000:])
+        # resp_temp = np.array(resp3[-10000:])
+        # p_a3.append(np.array([np.mean(resp_temp[stim_temp == s]) for s in np.unique(stim3)]))
+        #
+        # params['adapt'] = 2
+        # params['beta'] = 2.2
+        # params['Q_init'] = 0.5 * np.ones((7, 2))
+        # params['H_init'] = 0.5 * np.ones((7, 2))
+        # model4.append(train(S, A, R, params, task='accumulation'))
+        # stim4 = [model4[idx]['stim'][trial].sum() for trial in range(model4[idx]['params']['Ntrials'])]
+        # resp4 = [model4[idx]['action'][trial] for trial in range(model4[idx]['params']['Ntrials'])]
+        # trialindex = [np.logical_or(np.array(stim4) == 4, np.array(stim4) == 6)]
+        # stimlist = model4[idx]['stim'][trialindex]
+        # resplist = model4[idx]['action'][trialindex]
+        # regmodel = LogisticRegression(random_state=0).fit(X=stimlist[-2000:].astype(int), y=resplist[-2000:].astype(int))
+        # weights4.append(regmodel.coef_.flatten())
+        # stim_temp = np.array(stim4[-10000:])
+        # resp_temp = np.array(resp4[-10000:])
+        # p_a4.append(np.array([np.mean(resp_temp[stim_temp == s]) for s in np.unique(stim4)]))
 
 if theory_learning:
     nvals = 54
@@ -286,3 +287,6 @@ if plot_schedule:
 
 if plot_accumulation:
     plot(type='accumulate', model=[model1, model2], vars=[stim1, resp1, weights1, p_a1, stim2, resp2, weights2, p_a2])
+
+if plot_supplements:
+    plot(type='supplements')

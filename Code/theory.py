@@ -16,13 +16,17 @@ def asymptote(beta):
     return optimize.newton(f, .75, maxiter=1000)
 
 
-def steadystate(noise, beta):
+def steadystate(noise, beta, eps=None, type='softmax'):
     Q = 1 - noise
-    H = asymptote(beta)
+    if type == 'softmax':
+        H = asymptote(beta)
+    elif type == 'eps':
+        H = 1 - eps
     if noise > 0.5:
         H = 1 - H
     if np.abs(H-0.5) < np.abs(Q-0.5):
-        H = softmax(np.array([Q, 1-Q]), beta)[0]
+        if type == 'softmax':
+            H = softmax(np.array([Q, 1-Q]), beta)[0]
     p = H
     r = p * (1 - noise) + (1 - p) * noise
     return Q, H, p, r
@@ -31,6 +35,10 @@ def steadystate(noise, beta):
 def criticalbeta(noise):
     p = 1-noise
     return (np.log(p) - np.log(1-p)) / (p - (1-p))
+
+
+def criticaleps(noise):
+    return noise
 
 
 def criticalbeta_sequential(noise, p):

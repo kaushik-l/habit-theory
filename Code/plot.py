@@ -1,8 +1,20 @@
 import matplotlib
+from scipy import optimize
 from matplotlib import pyplot as plt
 import numpy as np
+import theory
 from scipy.special import factorial
 from theory import criticalbeta
+
+
+def asymptote(beta):
+    f = lambda x: (np.exp(beta*x) / (np.exp(beta*x) + np.exp(beta*(1-x)))) - x
+    return optimize.newton(f, .75, maxiter=1000)
+
+
+def asymptote_weighted(beta, pr, w):
+    f = lambda x: (np.exp(beta*((1-w)*pr + w*x)) / (np.exp(beta*((1-w)*pr + w*x)) + np.exp(beta*(1 - (1-w)*pr - w*x)))) - x
+    return optimize.newton(f, .75, maxiter=1000)
 
 
 def softmax(x, beta, axis=-1):
@@ -51,9 +63,9 @@ def plot(type='learning', model=None, vars=None, smooth=False):
     if type == 'learning':
         nsims = len(model)
         params = model[0]['params']
-        rew = np.array([model[sim]['rew'] for sim in range(nsims)]).mean(axis=0)
-        Qval = np.array([model[sim]['Qval'] for sim in range(nsims)]).mean(axis=0)
-        Hval = np.array([model[sim]['Hval'] for sim in range(nsims)]).mean(axis=0)
+        rew = np.median(np.array([model[sim]['rew'] for sim in range(nsims)]), axis=0)
+        Qval = np.median(np.array([model[sim]['Qval'] for sim in range(nsims)]), axis=0)
+        Hval = np.median(np.array([model[sim]['Hval'] for sim in range(nsims)]), axis=0)
         # p_a = np.array([model[sim]['p_a'] for sim in range(nsims)]).mean(axis=0)
         # rpe = np.array([model[sim]['rpe'] for sim in range(nsims)]).mean(axis=0)
         # ape = np.array([model[sim]['ape'] for sim in range(nsims)]).mean(axis=0)
@@ -67,7 +79,7 @@ def plot(type='learning', model=None, vars=None, smooth=False):
         plt.plot(Qval[:, 1, 0], label='s=1, a=0', color='r', alpha=.3)
         plt.plot(Qval[:, 1, 1], label='s=1, a=1', color='r', alpha=1)
         plt.legend()
-        plt.ylim((-0.05, 1.05)), plt.xlim((2500, 7500))
+        plt.ylim((-0.05, 1.05)), plt.xlim((0, 7500)) #plt.xlim((2500, 7500))
         plt.grid(axis='y')
         plt.xlabel('Trial'), plt.ylabel('Q value')
         plt.subplot(1, 4, 2)
@@ -76,7 +88,7 @@ def plot(type='learning', model=None, vars=None, smooth=False):
         plt.plot(Hval[:, 1, 0], label='s=1, a=0', color='r', alpha=.3)
         plt.plot(Hval[:, 1, 1], label='s=1, a=1', color='r', alpha=1)
         # plt.legend()
-        plt.ylim((-0.05, 1.05)), plt.xlim((2500, 7500))
+        plt.ylim((-0.05, 1.05)), plt.xlim((0, 7500)) #plt.xlim((2500, 7500))
         plt.grid(axis='y')
         plt.xlabel('Trial'), plt.ylabel('H value')
         plt.subplot(1, 4, 3)
@@ -87,18 +99,19 @@ def plot(type='learning', model=None, vars=None, smooth=False):
         plt.plot(np.convolve(p_a[:, 1, 1], np.ones(smoothwin) / smoothwin, mode='valid'), label='P(a=1|s=1)', color='r', alpha=1) \
             if smooth else plt.plot(p_a[:, 1, 1], label='p(a=1|s=1)', color='r', alpha=1)
         plt.legend()
-        plt.ylim((-0.05, 1.05)), plt.xlim((2500, 7500))
+        plt.ylim((-0.05, 1.05)), plt.xlim((0, 7500)) #plt.xlim((2500, 7500))
         plt.grid(axis='y')
         plt.xlabel('Trial'), plt.ylabel('Policy')
         plt.subplot(1, 4, 4)
         # plt.plot(np.convolve(rew, np.ones(smoothwin) / smoothwin)) if smooth else plt.plot(rew)
         plt.plot(np.convolve(rew, np.ones(smoothwin) / smoothwin), color='k') \
             if smooth else plt.plot(movmedian(rew, winsize=100, adapt=False, median=False), color='k')
-        plt.ylim((-0.05, 1.05)), plt.xlim((2500, 7500))
+        plt.ylim((-0.05, 1.05)), plt.xlim((0, 7500)) #plt.xlim((2500, 7500))
         plt.grid(axis='y')
         plt.xlabel('Trial'), plt.ylabel('Average reward')
         # plt.suptitle(r'$\beta$ = ' + str(params['beta']) + '; $p_n$ = ' + str(params['p_n']), fontsize=16)
         plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+        plt.show()
 
     elif type == 'sequential_learning':
         nsims = len(model)
@@ -183,6 +196,7 @@ def plot(type='learning', model=None, vars=None, smooth=False):
         plt.ylim((1, 4)), plt.yticks([1, 2, 3, 4]), plt.xticks([0, .25, .5, .75, 1])
         plt.xlabel(r'Reward probability $(p_r)$'), plt.ylabel(r'Degree of exploitation $(\beta)$')
         plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+        plt.show()
 
     elif type == 'inference':
         mdl = model[4]
@@ -362,24 +376,195 @@ def plot(type='learning', model=None, vars=None, smooth=False):
         plt.xlabel(r'Click number', fontsize=14), plt.ylabel(r'Regression weight', fontsize=14)
         plt.tight_layout(rect=[0, 0.05, 1, 0.95])
 
-        # load Keung et al. data
-        import csv
+        stim1, resp1, weights1, p_a1, stim2, resp2, weights2, p_a2 = vars
+        plt.figure(figsize=(12, 3.5), dpi=80)
+        plt.subplot(2, 2, 1)
+        plt.plot(range(11), np.array(p_a1).T, 'b', linewidth=.5)
+        plt.plot(range(11), np.mean(p_a1, axis=0), 'b', linewidth=2)
+        plt.xlim((-1, 11)), plt.xticks(ticks=[0, 2, 4, 6, 8, 10], labels=[-10, -6, -2, 2, 6, 10])
+        plt.ylim((0, 1)), plt.yticks(ticks=[0, .2, .4, .6, .8, 1])
+        plt.xlabel(r'Clicks (R - L)', fontsize=14), plt.ylabel(r'P(R)', fontsize=14)
+        plt.subplot(2, 2, 3)
+        plt.plot(range(11), np.array(p_a2).T, 'r', linewidth=.5)
+        plt.plot(range(11), np.mean(p_a2, axis=0), 'r', linewidth=2)
+        plt.xlim((-1, 11)), plt.xticks(ticks=[0, 2, 4, 6, 8, 10], labels=[-10, -6, -2, 2, 6, 10])
+        plt.ylim((0, 1)), plt.yticks(ticks=[0, .2, .4, .6, .8, 1])
+        plt.xlabel(r'Clicks (R - L)', fontsize=14), plt.ylabel(r'P(R)', fontsize=14)
+        plt.subplot(2, 2, 2)
+        plt.plot(range(10), np.array(weights1).T, 'b', linewidth=.5)
+        plt.plot(range(10), np.mean(weights1, axis=0), 'b', linewidth=2)
+        plt.xlim((-1, 10)), plt.xticks(ticks=[1, 3, 5, 7, 9], labels=[2, 4, 6, 8, 10])
+        plt.ylim((0, 4)), plt.yticks(ticks=[0, 1, 2, 3, 4])
+        plt.xlabel(r'Click number', fontsize=14), plt.ylabel(r'Regression weight', fontsize=14)
+        plt.subplot(2, 2, 4)
+        plt.plot(range(10), np.array(weights2).T, 'r', linewidth=.5)
+        plt.plot(range(10), np.mean(weights2, axis=0), 'r', linewidth=2)
+        plt.xlim((-1, 10)), plt.xticks(ticks=[1, 3, 5, 7, 9], labels=[2, 4, 6, 8, 10])
+        plt.ylim((0, 4)), plt.yticks(ticks=[0, 1, 2, 3, 4])
+        plt.xlabel(r'Click number', fontsize=14), plt.ylabel(r'Regression weight', fontsize=14)
+        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+
+        plt.figure(figsize=(4.75, 10), dpi=80)
+        plt.subplot(2,1,1)
+        s = [[model1[sim]['stim'][trial].sum() for trial in range(10000, 20000)] for sim in range(20)]
+        a = [[model1[sim]['action'][trial] for trial in range(10000, 20000)] for sim in range(20)]
+        p_a1 = [np.array(a)[sim, np.array(s)[sim] == 4].mean() for sim in range(20)]
+        p_a2 = [np.array(a)[sim, np.array(s)[sim] == 6].mean() for sim in range(20)]
+        plt.errorbar(np.linspace(0, 4.5, 20), np.mean((1 - np.array(p_a1), p_a2), axis=0),
+                 np.std((1 - np.array(p_a1), p_a2), axis=0))
+        plt.ylim((.4, 1))
+        plt.xlabel(r'Degree of exploitation, $\beta$', fontsize=14), plt.ylabel(r'Probability of correct response', fontsize=14)
+        plt.subplot(2,1,2)
+        s = [[model2[sim]['stim'][trial].sum() for trial in range(10000, 20000)] for sim in range(20)]
+        a = [[model2[sim]['action'][trial] for trial in range(10000, 20000)] for sim in range(20)]
+        p_a1 = [np.array(a)[sim, np.array(s)[sim] == 0].mean() for sim in range(20)]
+        p_a2 = [np.array(a)[sim, np.array(s)[sim] == 10].mean() for sim in range(20)]
+        plt.errorbar(np.linspace(0, 4.5, 20), np.mean((1 - np.array(p_a1), p_a2), axis=0),
+                 np.std((1 - np.array(p_a1), p_a2), axis=0))
+        plt.ylim((.4, 1))
+        plt.xlabel(r'Degree of exploitation, $\beta$', fontsize=14), plt.ylabel(r'Probability of correct response', fontsize=14)
+        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+
+        Ntrials=20000
+        Qvals_model1 = np.array([np.array(model1[idx]['Qval'])[:Ntrials, :, 0] for idx in range(len(model1))])
+        Hvals_model1 = np.array([np.array(model1[idx]['Hval'])[:Ntrials, :, 0] for idx in range(len(model1))])
+        Qvals_model2 = np.array([np.array(model2[idx]['Qval'])[:Ntrials, :, 0] for idx in range(len(model2))])
+        Hvals_model2 = np.array([np.array(model2[idx]['Hval'])[:Ntrials, :, 0] for idx in range(len(model2))])
         plt.figure(figsize=(12, 12), dpi=80)
-        files = ['Primacy.csv', 'Intermediacy.csv', 'Uniform.csv', 'Recency.csv']
-        for idx, file in enumerate(files):
-            with open('..//Data//Keung//' + file) as csv_file:
-                csv_reader = csv.reader(csv_file, delimiter=',')
-                line_count = 0
-                click, coeff = [], []
-                for row in csv_reader:
-                    click.append(row[0])
-                    coeff.append(row[1])
-                    line_count += 1
-                plt.subplot(2, 2, idx+1)
-                k = 1 if idx == 0 else 0
-                plt.plot(np.array(click)[k:].astype(float), np.array(coeff)[k:].astype(float))
-                plt.xlim((0, 21)), plt.ylim((0, 0.7)), plt.xticks(ticks=[]), plt.yticks(ticks=[])
-                plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+        plt.subplot(2,2,1)
+        plt.plot(np.tile(range(Ntrials), (7,1)).T, np.mean(Qvals_model1, axis=0)), plt.ylim((0,1))
+        plt.xlabel('Trial', fontsize=14), plt.ylabel(r'Action value, Q', fontsize=14)
+        plt.subplot(2,2,2)
+        plt.plot(np.tile(range(Ntrials), (7,1)).T, np.mean(Hvals_model1, axis=0)), plt.ylim((0,1))
+        plt.xlabel('Trial', fontsize=14), plt.ylabel(r'Action preference, H', fontsize=14)
+        plt.subplot(2,2,3)
+        plt.plot(np.tile(range(Ntrials), (7,1)).T, np.mean(Qvals_model2, axis=0)), plt.ylim((0,1))
+        plt.xlabel('Trial', fontsize=14), plt.ylabel(r'Action value, Q', fontsize=14)
+        plt.subplot(2,2,4)
+        plt.plot(np.tile(range(Ntrials), (7,1)).T, np.mean(Hvals_model2, axis=0)), plt.ylim((0,1))
+        plt.xlabel('Trial', fontsize=14), plt.ylabel(r'Action preference, H', fontsize=14)
 
 
-    plt.show()
+    elif type == 'supplements':
+        ### figure S1
+        cmap = matplotlib.cm.get_cmap('RdBu')
+        Q = np.linspace(0.5, 1, 50)
+        H = np.linspace(0.5, 1, 50)
+        z = np.zeros((50, 50))
+        for idx1, q in enumerate(Q):
+            for idx2, h in enumerate(H):
+                z[idx1, idx2] = softmax(np.array([h, 1 - h]), 2.5).max() - softmax(np.array([q, 1 - q]), 2.5).max()
+        betas = np.linspace(0, 5, 50)
+        prs = [0.6, 0.7, 0.8, 0.9, 1]
+        r = np.zeros((50, 5))
+        for idx1, beta in enumerate(betas):
+            for idx2, p_r in enumerate(prs):
+                p_a1 = softmax(np.array([p_r, 1 - p_r]), beta).max()
+                p_a2 = asymptote(beta)
+                p_a = softmax(np.array([p_r, 1 - p_r]), beta).max() if p_r > p_a2 else p_a2
+                r[idx1, idx2] = p_r * p_a + (1 - p_r) * (1 - p_a)
+        plt.figure(figsize=(16, 6))
+        plt.subplot(1, 2, 1)
+        plt.imshow(z, extent=[Q[0], Q[-1], H[0], H[-1]], cmap=cmap, vmin=-0.5, vmax=0.5)
+        plt.gca().invert_yaxis()
+        plt.colorbar()
+        plt.xlabel('Value of best action, max(Q)', fontsize=14), plt.ylabel('Preference for best action, max(H)', fontsize=14)
+        plt.title(r'$\sigma_{\beta}(H) - \sigma_{\beta}(Q)$')
+        plt.subplot(1, 2, 2)
+        plt.plot(betas, r), plt.ylim((0.5, 1.05))
+        plt.xlabel(r'Degree of exploitation, $\beta$', fontsize=14), plt.ylabel('Average reward', fontsize=14)
+        plt.legend(prs, title='Reward probability')
+        plt.show()
+
+        ### figure S2A
+        nvals = 54
+        noise = np.linspace(0, 1, nvals)
+        beta = np.linspace(1, 4, nvals)
+        eps = np.linspace(0, 0.5, nvals)
+        Qlist, Hlist, plist, rlist = (np.zeros((nvals, nvals)), np.zeros((nvals, nvals)),
+                                      np.zeros((nvals, nvals)), np.zeros((nvals, nvals)))
+        for idx1 in range(nvals):
+            for idx2 in range(nvals):
+                Q, H, p, r = theory.steadystate(noise[idx1], beta[idx2], eps[idx2], type='eps')
+                Qlist[idx1, idx2] = Q
+                Hlist[idx1, idx2] = H
+                plist[idx1, idx2] = p
+                rlist[idx1, idx2] = r
+        epscrit = np.array([theory.criticaleps(n) for n in noise])
+        Q, H, p, r = Qlist, Hlist, plist, rlist
+        cmap = matplotlib.cm.get_cmap('RdBu')
+        plt.figure(figsize=(12, 3.2), dpi=80)
+        plt.subplot(1, 4, 1)
+        plt.imshow(Q.T, extent=[0, 1, 1, 0.5], vmin=0, vmax=1, cmap=cmap, aspect='auto')
+        plt.plot(noise, epscrit, 'k')
+        plt.gca().invert_yaxis()
+        plt.ylim((0.5, 1)), plt.yticks([0.5, 0.6, 0.7, 0.8, 0.9, 1]), plt.xticks([0, .25, .5, .75, 1])
+        plt.xlabel(r'Reward probability $(p_r)$'), plt.ylabel(r'Degree of exploitation $(1-\epsilon)$')
+        plt.subplot(1, 4, 2)
+        plt.imshow(H.T, extent=[0, 1, 1, 0.5], vmin=0, vmax=1, cmap=cmap, aspect='auto')
+        plt.plot(noise, epscrit, 'k')
+        plt.gca().invert_yaxis()
+        plt.ylim((0.5, 1)), plt.yticks([0.5, 0.6, 0.7, 0.8, 0.9, 1]), plt.xticks([0, .25, .5, .75, 1])
+        plt.xlabel(r'Reward probability $(p_r)$'), plt.ylabel(r'Degree of exploitation $(1-\epsilon)$')
+        plt.subplot(1, 4, 3)
+        plt.imshow(p.T, extent=[0, 1, 1, 0.5], vmin=0, vmax=1, cmap=cmap, aspect='auto')
+        plt.plot(noise, epscrit, 'k')
+        plt.gca().invert_yaxis()
+        plt.ylim((0.5, 1)), plt.yticks([0.5, 0.6, 0.7, 0.8, 0.9, 1]), plt.xticks([0, .25, .5, .75, 1])
+        plt.xlabel(r'Reward probability $(p_r)$'), plt.ylabel(r'Degree of exploitation $(1-\epsilon)$')
+        plt.subplot(1, 4, 4)
+        plt.imshow(1 - r.T, extent=[0, 1, 1, 0.5], vmin=0, vmax=1, cmap=cmap, aspect='auto')
+        plt.plot(noise, epscrit, 'k')
+        plt.gca().invert_yaxis()
+        plt.ylim((0.5, 1)), plt.yticks([0.5, 0.6, 0.7, 0.8, 0.9, 1]), plt.xticks([0, .25, .5, .75, 1])
+        plt.xlabel(r'Reward probability $(p_r)$'), plt.ylabel(r'Degree of exploitation $(1-\epsilon)$')
+        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+        plt.show()
+
+        ### figure S2B
+        weights = np.linspace(0, 1, 50)
+        betas = np.linspace(1, 4, 15)
+        prs = [.6, .7, .8, .9]
+        p_a = np.zeros((6, 15, 50))
+        for idx1, p_r in enumerate(prs):
+            for idx2, beta in enumerate(betas):
+                for idx3, w in enumerate(weights):
+                    p_a[idx1, idx2, idx3] = asymptote_weighted(beta, p_r, w)
+        cmap = matplotlib.cm.get_cmap('RdBu')
+        plt.figure(figsize=(12, 3.2), dpi=80)
+        plt.subplot(1, 4, 1)
+        plt.plot(weights, p_a[0].T)
+        plt.xlabel(r'Weighting on habit system $(w)$'), plt.ylabel(r'Action probability $(p_a)$')
+        plt.subplot(1, 4, 2)
+        plt.plot(weights, p_a[1].T)
+        plt.xlabel(r'Weighting on habit system $(w)$'), plt.ylabel(r'Action probability $(p_a)$')
+        plt.subplot(1, 4, 3)
+        plt.plot(weights, p_a[2].T)
+        plt.xlabel(r'Weighting on habit system $(w)$'), plt.ylabel(r'Action probability $(p_a)$')
+        plt.subplot(1, 4, 4)
+        plt.plot(weights, p_a[3].T)
+        plt.xlabel(r'Weighting on habit system $(w)$'), plt.ylabel(r'Action probability $(p_a)$')
+        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+        plt.show()
+
+
+
+    # load Keung et al. data
+    import csv
+    plt.figure(figsize=(12, 12), dpi=80)
+    files = ['Primacy.csv', 'Intermediacy.csv', 'Uniform.csv', 'Recency.csv']
+    for idx, file in enumerate(files):
+        with open('..//Data//Keung//' + file) as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=',')
+            line_count = 0
+            click, coeff = [], []
+            for row in csv_reader:
+                click.append(row[0])
+                coeff.append(row[1])
+                line_count += 1
+            plt.subplot(2, 2, idx+1)
+            k = 1 if idx == 0 else 0
+            plt.plot(np.array(click)[k:].astype(float), np.array(coeff)[k:].astype(float))
+            plt.xlim((0, 21)), plt.ylim((0, 0.7)), plt.xticks(ticks=[]), plt.yticks(ticks=[])
+            plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+plt.show()
